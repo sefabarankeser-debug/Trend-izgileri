@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Kripto Analiz</title>
+  
+  <!-- iPhone Tam Ekran Uygulama Modu -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kripto Analiz">
+  <meta name="theme-color" content="#0c0f17">
+  
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0c0f17;
+      color: #d1d4dc;
+      padding: env(safe-area-inset-top, 8px) 8px env(safe-area-inset-bottom, 8px) 8px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .search-input {
+      width: 100%;
+      background: #1c2230;
+      border: 1px solid #2d3648;
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 6px;
+      outline: none;
+    }
+    .search-input:focus { border-color: #f0b90b; }
+    
+    .row-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin-bottom: 6px;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+    .row-scroll::-webkit-scrollbar { display: none; }
+    
+    .chip {
+      background: #1a202c;
+      border: 1px solid #283244;
+      color: #9aa4b2;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .chip.active { background: #f0b90b; color: #000; border-color: #f0b90b; }
+    
+    .tf-btn {
+      background: #161b26;
+      border: 1px solid #252d3d;
+      color: #788292;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .tf-btn.active { background: #2962ff; color: #fff; border-color: #2962ff; }
+
+    #main-chart { width: 100%; height: 260px; background: #0c0f17; flex-shrink: 0; }
+    #osc-chart { width: 100%; height: 100px; background: #090c12; margin-top: 4px; flex-shrink: 0; }
+    
+    .panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-top: 6px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .card { background: #141923; border: 1px solid #1f2637; border-radius: 6px; padding: 7px 8px; }
+    .card-title { font-size: 9px; color: #788292; font-weight: bold; }
+    .card-val { font-size: 14px; font-weight: bold; color: #fff; margin-top: 2px; }
+    
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-top: 2px; }
+    .badge-buy { background: rgba(38,166,154,0.2); color: #26a69a; border: 1px solid #26a69a; }
+    .badge-sell { background: rgba(239,83,80,0.2); color: #ef5350; border: 1px solid #ef5350; }
+  </style>
+</head>
+<body>
+  <input type="text" id="searchInput" class="search-input" placeholder="🔍 Coin Ara (Örn: DYM, GMX, BTC, SOL)...">
+  
+  <div class="row-scroll" id="coinChips">
+    <div class="chip active" onclick="setCoin('DYMUSDT')">DYM</div>
+    <div class="chip" onclick="setCoin('GMXUSDT')">GMX</div>
+    <div class="chip" onclick="setCoin('INJUSDT')">INJ</div>
+    <div class="chip" onclick="setCoin('DOGEUSDT')">DOGE</div>
+    <div class="chip" onclick="setCoin('BTCUSDT')">BTC</div>
+    <div class="chip" onclick="setCoin('ETHUSDT')">ETH</div>
+    <div class="chip" onclick="setCoin('SOLUSDT')">SOL</div>
+    <div class="chip" onclick="setCoin('1000PEPEUSDT')">PEPE</div>
+  </div>
+
+  <div class="row-scroll">
+    <span style="font-size:11px; color:#788292; align-self:center; margin-right:4px;">Periyot:</span>
+    <button class="tf-btn" onclick="setTimeframe('15m')">15d</button>
+    <button class="tf-btn" onclick="setTimeframe('1h')">1s</button>
+    <button class="tf-btn" onclick="setTimeframe('4h')">4s</button>
+    <button class="tf-btn active" onclick="setTimeframe('1d')">1G</button>
+  </div>
+
+  <div id="main-chart"></div>
+  <div id="osc-chart"></div>
+
+  <div class="panel">
+    <div class="card">
+      <div class="card-title">FİYAT (<span id="activeTF">1G</span>)</div>
+      <div class="card-val" id="pDisplay">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">SUPERTREND</div>
+      <div id="sBadge" class="badge badge-buy">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">KANAL ÜST DİRENÇ</div>
+      <div class="card-val" id="uRes" style="color:#ef5350; font-size:13px;">--</div>
+    </div>
+    <div class="card">
+      <div class="card-title">KANAL ALT DESTEK</div>
+      <div class="card-val" id="lSup" style="color:#26a69a; font-size:13px;">--</div>
+    </div>
+  </div>
+
+  <script>
+    let mChart, oChart, cSeries, stGreenSeries, stRedSeries, uSeries, lSeries, kSeries, dSeries;
+    let activeSymbol = 'DYMUSDT';
+    let activeInterval = '1d';
+
+    function init() {
+      mChart = LightweightCharts.createChart(document.getElementById('main-chart'), {
+        layout: { background: { color: '#0c0f17' }, textColor: '#848e9c', fontSize: 10 },
+        grid: { vertLines: { color: '#161b26' }, horzLines: { color: '#161b26' } },
+        crosshair: { mode: 1 },
+        timeScale: { visible: false }
+      });
+
+      cSeries = mChart.addCandlestickSeries({
+        upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+        wickUpColor: '#26a69a', wickDownColor: '#ef5350'
+      });
+
+      stGreenSeries = mChart.addLineSeries({ color: '#26a69a', lineWidth: 2, lineType: 2 });
+      stRedSeries = mChart.addLineSeries({ color: '#ef5350', lineWidth: 2, lineType: 2 });
+      uSeries = mChart.addLineSeries({ color: '#f0b90b', lineWidth: 1.5 });
+      lSeries = mChart.addLineSeries({ color: '#f0b90b', lineWidth: 1.5 });
+
+      oChart = LightweightCharts.createChart(document.getElementById('osc-chart'), {
+        layout: { background: { color: '#090c12' }, textColor: '#6b7485', fontSize: 9 },
+        grid: { vertLines: { color: '#121620' }, horzLines: { color: '#121620' } },
+        priceScale: { autoScale: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
+        timeScale: { borderColor: '#1f2535', timeVisible: true }
+      });
+
+      kSeries = oChart.addLineSeries({ color: '#2962ff', lineWidth: 1.5 });
+      dSeries = oChart.addLineSeries({ color: '#ff6d00', lineWidth: 1.5 });
+
+      mChart.timeScale().subscribeVisibleLogicalRangeChange(r => oscChart.timeScale().setVisibleLogicalRange(r));
+      oChart.timeScale().subscribeVisibleLogicalRangeChange(r => mChart.timeScale().setVisibleLogicalRange(r));
+    }
+
+    function syncChipSelection(sym) {
+      const clean = sym.replace('USDT', '').replace('1000', '');
+      document.querySelectorAll('.chip').forEach(c => {
+        c.classList.toggle('active', c.innerText === clean || c.innerText === sym.replace('USDT', ''));
+      });
+    }
+
+    function setCoin(sym) {
+      activeSymbol = sym;
+      syncChipSelection(sym);
+      load();
+    }
+
+    function setTimeframe(tf) {
+      activeInterval = tf;
+      const map = { '15m': '15d', '1h': '1s', '4h': '4s', '1d': '1G' };
+      document.querySelectorAll('.tf-btn').forEach(b => {
+        b.classList.toggle('active', b.innerText === map[tf]);
+      });
+      document.getElementById('activeTF').innerText = map[tf];
+      load();
+    }
+
+    function computeSuperTrend(candles, period = 10, mult = 3.0) {
+      let atr = [], upperBand = [], lowerBand = [];
+      for (let i = 0; i < candles.length; i++) {
+        if (i === 0) {
+          atr.push(candles[i].high - candles[i].low);
+        } else {
+          let tr = Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i-1].close), Math.abs(candles[i].low - candles[i-1].close));
+          atr.push((atr[i-1] * (period - 1) + tr) / period);
+        }
+        let hl2 = (candles[i].high + candles[i].low) / 2;
+        upperBand.push(hl2 + mult * atr[i]);
+        lowerBand.push(hl2 - mult * atr[i]);
+      }
+
+      let inUpTrend = true;
+      let finalUpper = [...upperBand], finalLower = [...lowerBand];
+      let greenData = [], redData = [], markers = [];
+
+      for (let i = 1; i < candles.length; i++) {
+        if (lowerBand[i] > finalLower[i-1] || candles[i-1].close < finalLower[i-1]) finalLower[i] = lowerBand[i];
+        else finalLower[i] = finalLower[i-1];
+
+        if (upperBand[i] < finalUpper[i-1] || candles[i-1].close > finalUpper[i-1]) finalUpper[i] = upperBand[i];
+        else finalUpper[i] = finalUpper[i-1];
+
+        let prevTrend = inUpTrend;
+        if (inUpTrend && candles[i].close < finalLower[i]) inUpTrend = false;
+        else if (!inUpTrend && candles[i].close > finalUpper[i]) inUpTrend = true;
+
+        if (inUpTrend) {
+          greenData.push({ time: candles[i].time, value: finalLower[i] });
+          if (!prevTrend) markers.push({ time: candles[i].time, position: 'belowBar', color: '#26a69a', shape: 'arrowUp', text: 'AL' });
+        } else {
+          redData.push({ time: candles[i].time, value: finalUpper[i] });
+          if (prevTrend) markers.push({ time: candles[i].time, position: 'aboveBar', color: '#ef5350', shape: 'arrowDown', text: 'SAT' });
+        }
+      }
+      return { greenData, redData, inUpTrend, markers };
+    }
+
+    function computeDynamicChannel(candles) {
+      const n = candles.length;
+      let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+      for (let i = 0; i < n; i++) {
+        const p = candles[i].close;
+        sumX += i; sumY += p; sumXY += i * p; sumXX += i * i;
+      }
+      const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+
+      let maxAbove = 0, maxBelow = 0;
+      for (let i = 0; i < n; i++) {
+        const reg = intercept + slope * i;
+        maxAbove = Math.max(maxAbove, candles[i].high - reg);
+        maxBelow = Math.max(maxBelow, reg - candles[i].low);
+      }
+
+      let uL = [], lL = [];
+      for (let i = 0; i < n; i++) {
+        const t = candles[i].time;
+        const reg = intercept + slope * i;
+        uL.push({ time: t, value: reg + maxAbove });
+        lL.push({ time: t, value: reg - maxBelow });
+      }
+      return { uL, lL };
+    }
+
+    function computeStochRSI(candles) {
+      let rsiLen = 14, kArr = [], dArr = [];
+      for (let i = rsiLen; i < candles.length; i++) {
+        let slice = candles.slice(i - rsiLen, i + 1).map(c => c.close);
+        let max = Math.max(...slice), min = Math.min(...slice);
+        let stoch = max === min ? 50 : Math.min(100, Math.max(0, ((candles[i].close - min) / (max - min)) * 100));
+        kArr.push({ time: candles[i].time, value: stoch });
+      }
+      for (let i = 2; i < kArr.length; i++) {
+        let avg = (kArr[i].value + kArr[i-1].value + kArr[i-2].value) / 3;
+        dArr.push({ time: kArr[i].time, value: avg });
+      }
+      return { kArr, dArr };
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${activeSymbol}&interval=${activeInterval}&limit=90`);
+        const data = await res.json();
+        const candles = data.map(d => ({ time: d[0]/1000, open: +d[1], high: +d[2], low: +d[3], close: +d[4] }));
+        
+        const last = candles[candles.length - 1];
+        const dec = last.close < 0.1 ? 5 : (last.close < 1 ? 4 : 2);
+
+        cSeries.applyOptions({ priceFormat: { type: 'price', precision: dec, minMove: 1 / Math.pow(10, dec) } });
+        cSeries.setData(candles);
+
+        document.getElementById('pDisplay').innerText = '$' + last.close.toFixed(dec);
+
+        const st = computeSuperTrend(candles);
+        stGreenSeries.setData(st.greenData);
+        stRedSeries.setData(st.redData);
+        cSeries.setMarkers(st.markers);
+        
+        const b = document.getElementById('sBadge');
+        b.className = `badge ${st.inUpTrend ? 'badge-buy' : 'badge-sell'}`;
+        b.innerText = st.inUpTrend ? '🟢 AL Aktif' : '🔴 SAT Aktif';
+
+        const ch = computeDynamicChannel(candles);
+        uSeries.setData(ch.uL);
+        lSeries.setData(ch.lL);
+        document.getElementById('uRes').innerText = '$' + ch.uL[ch.uL.length - 1].value.toFixed(dec);
+        document.getElementById('lSup').innerText = '$' + ch.lL[ch.lL.length - 1].value.toFixed(dec);
+
+        const { kArr, dArr } = computeStochRSI(candles);
+        kSeries.setData(kArr);
+        dSeries.setData(dArr);
+
+        mChart.timeScale().fitContent();
+        oChart.timeScale().fitContent();
+      } catch (e) {
+        console.error("Yükleme hatası:", e);
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const val = e.target.value.trim().toUpperCase();
+        if (val) {
+          activeSymbol = val.endsWith('USDT') ? val : val + 'USDT';
+          syncChipSelection(activeSymbol);
+          load();
+        }
+      }
+    });
+
+    window.onload = () => { init(); load(); };
+  </script>
+</body>
+</html>
