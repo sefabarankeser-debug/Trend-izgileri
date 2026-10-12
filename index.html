@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Kripto Analiz</title>
   
-  <!-- iPhone Tam Ekran Uygulama Modu -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Kripto Analiz">
@@ -170,8 +169,12 @@
       kSeries = oChart.addLineSeries({ color: '#2962ff', lineWidth: 1.5 });
       dSeries = oChart.addLineSeries({ color: '#ff6d00', lineWidth: 1.5 });
 
-      mChart.timeScale().subscribeVisibleLogicalRangeChange(r => oscChart.timeScale().setVisibleLogicalRange(r));
-      oChart.timeScale().subscribeVisibleLogicalRangeChange(r => mChart.timeScale().setVisibleLogicalRange(r));
+      mChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
+        if (r && oChart) oChart.timeScale().setVisibleLogicalRange(r);
+      });
+      oChart.timeScale().subscribeVisibleLogicalRangeChange(r => {
+        if (r && mChart) mChart.timeScale().setVisibleLogicalRange(r);
+      });
     }
 
     function syncChipSelection(sym) {
@@ -228,10 +231,14 @@
 
         if (inUpTrend) {
           greenData.push({ time: candles[i].time, value: finalLower[i] });
-          if (!prevTrend) markers.push({ time: candles[i].time, position: 'belowBar', color: '#26a69a', shape: 'arrowUp', text: 'AL' });
+          if (!prevTrend) {
+            markers.push({ time: candles[i].time, position: 'belowBar', color: '#26a69a', shape: 'arrowUp', text: 'AL' });
+          }
         } else {
           redData.push({ time: candles[i].time, value: finalUpper[i] });
-          if (prevTrend) markers.push({ time: candles[i].time, position: 'aboveBar', color: '#ef5350', shape: 'arrowDown', text: 'SAT' });
+          if (prevTrend) {
+            markers.push({ time: candles[i].time, position: 'aboveBar', color: '#ef5350', shape: 'arrowDown', text: 'SAT' });
+          }
         }
       }
       return { greenData, redData, inUpTrend, markers };
